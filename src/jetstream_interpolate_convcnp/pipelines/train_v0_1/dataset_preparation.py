@@ -1,4 +1,4 @@
-from jetstream_interpolate_convcnp.utils.constants import TIME, LATITUDE, LONGITUDE
+from jetstream_interpolate_convcnp.utils.constants import TIME, DATE, LATITUDE, LONGITUDE
 import os
 
 def convert_era5(input_path, output_path, chunking_in, chunking_out, reduce_time=False):
@@ -51,6 +51,22 @@ def dataset_conversions(settings):
                       reduce_time=settings['environment']['small_ds'])
 
         print("Finished processing ecmwf dataset.")
+
+    if settings['execute']['preprocessing']['amdar']:
+        from jetstream_interpolate_convcnp.processing.amdar.AMDARProcessor import AMDARProcessor
+        print("Processing AMDAR dataset...")
+
+        output_dir = os.path.dirname(paths['process_amdar_path_base'])
+        os.makedirs(output_dir, exist_ok=True)
+
+        amdar_processor = AMDARProcessor(paths['amdar_load_path'], 
+                                         partition_cols=[DATE, LATITUDE, LONGITUDE], 
+                                         reduce_time=settings['environment']['small_ds'],
+                                         skiprows=184,
+                                         encoding_errors='ignore')
+        amdar_processor.initialize(save_path=paths['process_amdar_path_base'])
+
+        print("Finished processing AMDAR dataset.")
 
 def dataset_preparation(settings):
     """

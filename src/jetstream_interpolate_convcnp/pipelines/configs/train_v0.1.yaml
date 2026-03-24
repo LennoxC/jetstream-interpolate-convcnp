@@ -26,6 +26,6 @@ execute:
   dataset_preprocessing: true
 
   preprocessing:
-    era5: true
-    ecmwf: true
+    era5: false
+    ecmwf: false
     amdar: true
