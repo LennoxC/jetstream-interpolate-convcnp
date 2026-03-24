@@ -1,0 +1,31 @@
+# settings for the training v0.1 pipeline
+
+# dataset settings
+
+experiment_name: 'train_v0.1'
+
+paths:
+  era5_load_path: '/mnt/hdd/jetstream/data/development/era5/july2019/reanalysis_2019_07/pressure/*/*/*.nc'
+  ecmwf_load_path: '/mnt/hdd/jetstream/data/development/ecmwf/july_2019/ecmwf_forecast.nc'
+  amdar_load_path: '/mnt/hdd/jetstream/data/development/ceda/july_2019/data.ceda.ac.uk/badc/ukmo-metdb/data/amdars/*/*/*.csv'
+
+  process_base: '/mnt/hdd/jetstream/data/processed/train_v0.1/'
+  process_era5_path_base:  '/mnt/hdd/jetstream/data/processed/train_v0.1/era5/era5.nc'
+  process_ecmwf_path_base: '/mnt/hdd/jetstream/data/processed/train_v0.1/ecmwf/ecmwf.nc'
+  process_amdar_path_base: '/mnt/hdd/jetstream/data/processed/train_v0.1/amdar/'
+
+settings:
+  clear_dataset_save_dir_on_startup: true
+
+# use small datasets in development, often by subsetting in time.
+environment:
+  small_ds: true
+
+# control which steps of the pipeline to execute
+execute:
+  dataset_preprocessing: true
+
+  preprocessing:
+    era5: true
+    ecmwf: true
+    amdar: true
