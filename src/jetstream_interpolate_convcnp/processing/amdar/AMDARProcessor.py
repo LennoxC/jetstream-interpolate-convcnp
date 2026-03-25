@@ -63,9 +63,22 @@ class AMDARProcessor:
         self.ds['minute'] = self.ds['minute'].fillna(0)
         self.ds['second'] = self.ds['second'].fillna(0)
 
-        for col in ['year', 'month', 'day', 'hour', 'minute', 'second']:
-            self.ds[col] = self.ds[col].astype('float64')
+        time_cols = ['year', 'month', 'day', 'hour', 'minute', 'second']
 
+        # Convert safely
+        for col in time_cols:
+            self.ds[col] = dd.to_numeric(self.ds[col], errors='coerce')
+
+        
+        self.ds['minute'] = self.ds['minute'].fillna(0)
+        self.ds['second'] = self.ds['second'].fillna(0)
+
+        self.ds = self.ds.dropna(subset=['year', 'month', 'day', 'hour'])
+
+        for col in time_cols:
+            self.ds[col] = self.ds[col].astype('int64')
+
+        # Build datetime
         self.ds[TIME] = (
             dd.to_datetime(
                 self.ds['year'] * 10000 + self.ds['month'] * 100 + self.ds['day'],
@@ -87,11 +100,15 @@ class AMDARProcessor:
         # Normalize longitude
         self.ds[LONGITUDE] = self.ds[LONGITUDE] % 360
 
+        # cast lat and lon to int for partitioning. These cols are for partitioning only
+        self.ds[f"{LATITUDE}_int"] = np.floor(self.ds[LATITUDE]).astype('int64')
+        self.ds[f"{LONGITUDE}_int"] = np.floor(self.ds[LONGITUDE]).astype('int64')
+
         if self.reduce_time:
             min_date = self.ds[DATE].min()
             self.ds = self.ds[self.ds[DATE] == min_date]
 
-        target_cols = [TIME, DATE, LATITUDE, LONGITUDE, ALTITUDE, WIND_U, WIND_V]
+        target_cols = [TIME, DATE, LATITUDE, LONGITUDE, f"{LATITUDE}_int", f"{LONGITUDE}_int", ALTITUDE, WIND_U, WIND_V]
 
         self.ds = self.ds[target_cols]
         self.ds = self.ds.dropna(subset=target_cols)
@@ -105,6 +122,32 @@ class AMDARProcessor:
 
         if save_path is None:
             raise ValueError("You must provide a save_path")
+        
+        """
+        ValueError: Failed to convert partition to expected pyarrow schema:
+            `ArrowInvalid('Float value -33.883000 was truncated converting to int64', 'Conversion failed for column lat with type Float64')`
+
+        Expected partition schema:
+            time: timestamp[us]
+            date: timestamp[us]
+            lat: int64
+            lon: int64
+            altitude: int64
+            u: double
+            v: double
+
+        Received partition schema:
+            time: timestamp[us]
+            date: timestamp[us]
+            lat: double
+            lon: double
+            altitude: double
+            u: double
+            v: double
+
+        This error *may* be resolved by passing in schema information for
+        the mismatched column(s) using the `schema` keyword in `to_parquet`.
+        """
 
         # Ensure execution happens
         self.ds.to_parquet(
