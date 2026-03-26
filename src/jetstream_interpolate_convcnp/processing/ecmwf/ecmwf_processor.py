@@ -1,12 +1,13 @@
-from jetstream_interpolate_convcnp.utils.constants import GEOPOTENTIAL_HEIGHT, LONGITUDE, LATITUDE, PRESSURE_LEVEL, TIME, WIND_U, WIND_V
+from jetstream_interpolate_convcnp.utils.constants import ALTITUDE, GEOPOTENTIAL_HEIGHT, LONGITUDE, LATITUDE, PRESSURE_LEVEL, TIME, WIND_U, WIND_V
 import xarray as xr
 import re
 
 class ECMWFProcessor:
-    def __init__(self, dataset_path, chunking_in, chunking_out, reduce_time=False):
+    def __init__(self, dataset_path, chunking_in, chunking_out, normalizer=None, reduce_time=False):
         self.dataset_path = dataset_path
         self.chunking_in = chunking_in
         self.chunking_out = chunking_out
+        self.normalizer = normalizer
         self.reduce_time = reduce_time
 
     def load(self):
@@ -18,17 +19,17 @@ class ECMWFProcessor:
         if self.reduce_time:
             self.ds = self.ds.isel(time=slice(0, 24))
 
-    def preprocess(self):
+    def preprocess(self, normalize=True):
         # ECMWF files often store one variable per pressure level (e.g., UGRD_250mb).
         # This stacks those variables into unified arrays with a pressure_level coordinate.
         level_var_pattern = re.compile(r"^(UGRD|VGRD|HGT)_(\d+)mb$")
         target_name_by_source = {
             "UGRD": WIND_U,
             "VGRD": WIND_V,
-            "HGT": GEOPOTENTIAL_HEIGHT,
+            "HGT": ALTITUDE,
         }
 
-        grouped_vars = {WIND_U: [], WIND_V: [], GEOPOTENTIAL_HEIGHT: []}
+        grouped_vars = {WIND_U: [], WIND_V: [], ALTITUDE: []}
 
         for var_name in list(self.ds.data_vars):
             match = level_var_pattern.match(var_name)
@@ -65,9 +66,17 @@ class ECMWFProcessor:
         if rename_map:
             self.ds = self.ds.rename(rename_map)
 
+        if normalize and self.normalizer is not None:
+            # use the normalizer to normalize the dataset
+            print("Fitting normalizer on ECMWF dataset...")
+            self.normalizer.fit(self.ds)
+            self.ds = self.normalizer.normalize(self.ds)
+            self.normalizer.save()
+            
+
     def initialize(self, save_path=None):
         self.load()
-        self.preprocess()
+        self.preprocess(normalize=(self.normalizer is not None)) # normalize if a normalizer is provided
 
         if save_path is not None and self.chunking_out is not None:
             from jetstream_interpolate_convcnp.processing.chunk_netcdf import chunk_and_save

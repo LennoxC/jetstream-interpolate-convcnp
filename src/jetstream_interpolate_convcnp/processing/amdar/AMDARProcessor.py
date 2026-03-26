@@ -122,37 +122,22 @@ class AMDARProcessor:
 
         if save_path is None:
             raise ValueError("You must provide a save_path")
-        
-        """
-        ValueError: Failed to convert partition to expected pyarrow schema:
-            `ArrowInvalid('Float value -33.883000 was truncated converting to int64', 'Conversion failed for column lat with type Float64')`
-
-        Expected partition schema:
-            time: timestamp[us]
-            date: timestamp[us]
-            lat: int64
-            lon: int64
-            altitude: int64
-            u: double
-            v: double
-
-        Received partition schema:
-            time: timestamp[us]
-            date: timestamp[us]
-            lat: double
-            lon: double
-            altitude: double
-            u: double
-            v: double
-
-        This error *may* be resolved by passing in schema information for
-        the mismatched column(s) using the `schema` keyword in `to_parquet`.
-        """
 
         # Ensure execution happens
         self.ds.to_parquet(
             save_path,
             partition_on=self.partition_cols if self.partition_cols else None,
+            schema={
+                TIME: 'timestamp[us]',
+                DATE: 'timestamp[us]',
+                LATITUDE: 'double',
+                LONGITUDE: 'double',
+                f"{LATITUDE}_int": 'int64',
+                f"{LONGITUDE}_int": 'int64',
+                ALTITUDE: 'double',
+                WIND_U: 'double',
+                WIND_V: 'double'
+            },
             write_index=False,
             compute=True
         )
