@@ -9,4 +9,5 @@ PRESSURE_LEVEL="pressure_level"
 TIME="time"
 DATE="date"
 
-g=9.80665
+g = 9.80665
+R = 6378137

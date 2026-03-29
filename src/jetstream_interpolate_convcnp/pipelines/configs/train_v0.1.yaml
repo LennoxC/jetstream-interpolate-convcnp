@@ -25,12 +25,37 @@ settings:
 # use small datasets in development, often by subsetting in time.
 environment:
   small_ds: true
+  tensorboard_log_dir: './tb'
+
+training:
+  num_epochs: 1
+  batch_size: 16
+  train_dates_pct: 0.8
+  xy_resolution: 200 # number of grid points in xy plane
+  z_resolution: 100 # vertical resolution in vertical plane
+  xy_window_size_km: 200 # width and height of the input grid in kilometers
+  z_window_size_km: 8 # vertical size of the input grid in kilometers
+  z_min_km: 2 # minimum altitude of the input grid in kilometers
+  time_window_secs: 3600 # 1 hour time window around each amdar observation to consider for model input
+  random_shift_variance_km: 20
+
+# model settings
+model:
+  likelihood: "lowrank"
+  conv_arch: "unet-res"
+  unet_channels: 
+    - 4
+    - 4
+  unet_kernels: 5
+  points_per_unit: 5
 
 # control which steps of the pipeline to execute
 execute:
-  dataset_preprocessing: true
+  dataset_preprocessing: false
 
   preprocessing:
-    era5: false
-    ecmwf: false
+    era5: true
+    ecmwf: true
     amdar: true
+
+  train: true

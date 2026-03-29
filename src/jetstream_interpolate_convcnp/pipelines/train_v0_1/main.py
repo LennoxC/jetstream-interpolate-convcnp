@@ -2,6 +2,7 @@ import tqdm
 import os
 import yaml
 from jetstream_interpolate_convcnp.pipelines.train_v0_1.dataset_preparation import dataset_preparation
+from jetstream_interpolate_convcnp.learning.training.trainer import Trainer
 
 """
 Training pipeline v0.1
@@ -27,6 +28,10 @@ def program():
 
     if settings['execute']['dataset_preprocessing']:
         dataset_preparation(settings)
+
+    if settings['execute']['train']:
+        trainer = Trainer(settings)
+        trainer.run()
 
 def main():
     # skinny main method to run program, which is where the actual logic of the training pipeline lives.

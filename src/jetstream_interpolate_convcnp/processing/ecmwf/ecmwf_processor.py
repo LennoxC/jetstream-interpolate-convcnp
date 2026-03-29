@@ -9,6 +9,7 @@ class ECMWFProcessor:
         self.chunking_out = chunking_out
         self.normalizer = normalizer
         self.reduce_time = reduce_time
+        self.save_path = None
 
     def load(self):
         if self.chunking_in is not None:
@@ -75,6 +76,7 @@ class ECMWFProcessor:
             
 
     def initialize(self, save_path=None):
+        self.save_path = save_path
         self.load()
         self.preprocess(normalize=(self.normalizer is not None)) # normalize if a normalizer is provided
 
@@ -84,3 +86,6 @@ class ECMWFProcessor:
 
         if save_path is not None and self.chunking_out is None:
             self.ds.to_netcdf(save_path)
+
+    def output_dataset_path(self):
+        return self.save_path

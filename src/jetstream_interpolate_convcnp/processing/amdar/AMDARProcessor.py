@@ -1,3 +1,5 @@
+from turtle import pd
+
 import dask.dataframe as dd
 import numpy as np
 from jetstream_interpolate_convcnp.utils.constants import (
@@ -10,6 +12,7 @@ class AMDARProcessor:
         self.partition_cols = partition_cols
         self.reduce_time = reduce_time
         self.pandas_kwargs = kwargs
+        self.save_path = None
 
     def load(self):
         self.ds = dd.read_csv(self.dataset_path, 
@@ -120,6 +123,8 @@ class AMDARProcessor:
         self.load()
         self.preprocess()
 
+        self.save_path = save_path
+
         if save_path is None:
             raise ValueError("You must provide a save_path")
 
@@ -141,3 +146,6 @@ class AMDARProcessor:
             write_index=False,
             compute=True
         )
+
+    def output_dataset_path(self):
+        return self.save_path

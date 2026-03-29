@@ -8,6 +8,7 @@ class ERA5Processor:
         self.chunking_out = chunking_out
         self.normalizer = normalizer
         self.reduce_time = reduce_time
+        self.save_path = None
         
 
     def load(self):
@@ -38,6 +39,8 @@ class ERA5Processor:
     def initialize(self, save_path=None):
         self.load()
         self.preprocess()
+
+        self.save_path = save_path
 
         if save_path is not None and self.chunking_out is not None:
             from jetstream_interpolate_convcnp.processing.chunk_netcdf import chunk_and_save
