@@ -1,6 +1,7 @@
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+*.pyc
 
 src/utils/cds/requests/july_2019.py
 src/utils/cds/run.py

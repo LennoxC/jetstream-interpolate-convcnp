@@ -15,8 +15,9 @@ class Trainer:
         #for step in range(self.sampler.train_size // self.settings['training']['batch_size']):
         for step in range(1): # just one step for now to test the training loop
             batch_idx = self.sampler.sample_readings(self.settings['training']['batch_size'], mode='train')
-            tasks = self.task_builder.build_tasks(batch_idx)
+            amdar_tasks, ecmwf_tasks = self.task_builder.build_tasks(batch_idx)
             
+            print(f"Step {step}: AMDAR batch shape: {amdar_tasks.shape}, ECMWF batch shape: {ecmwf_tasks.shape}")
         pass
 
     def validate(self):
