@@ -18,6 +18,10 @@ class Trainer:
             amdar_tasks, ecmwf_tasks = self.task_builder.build_tasks(batch_idx)
             
             print(f"Step {step}: AMDAR batch shape: {amdar_tasks.shape}, ECMWF batch shape: {ecmwf_tasks.shape}")
+            # verify that non-zero samples are present in the batch
+            print(f"Step {step}: AMDAR batch non-zero samples: {(amdar_tasks.abs().sum(dim=[0, 2, 3, 4]) > 0).sum()}, ECMWF batch non-zero samples: {(ecmwf_tasks.abs().sum(dim=[0, 2, 3, 4]) > 0).sum()}")
+            # print the first few velocity values for the first sample in the batch
+            print(f"Step {step}: AMDAR batch first sample velocity values: {amdar_tasks[0, :, 0, 0, 0]}, ECMWF batch first sample velocity values: {ecmwf_tasks[0, :, 0, 0, 0]}")
 
             # show in paraview
             if step == 0:
