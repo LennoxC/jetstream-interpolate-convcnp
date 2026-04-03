@@ -18,7 +18,13 @@ class Trainer:
             amdar_tasks, ecmwf_tasks = self.task_builder.build_tasks(batch_idx)
             
             print(f"Step {step}: AMDAR batch shape: {amdar_tasks.shape}, ECMWF batch shape: {ecmwf_tasks.shape}")
-        pass
+
+            # show in paraview
+            if step == 0:
+                from jetstream_interpolate_convcnp.plotting.vti import save_batch_to_vtk
+                save_batch_to_vtk(amdar_tasks, filename_prefix="amdar_train")
+                save_batch_to_vtk(ecmwf_tasks, filename_prefix="ecmwf_train")
+        
 
     def validate(self):
         # validate model on validation set
