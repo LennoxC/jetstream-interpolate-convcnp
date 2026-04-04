@@ -56,8 +56,8 @@ class TaskBuilder:
         amdar_batch = torch.zeros(b_size, 2, x_size, y_size, z_size, dtype=torch.float32, device=self.device)
         ecmwf_batch = torch.zeros(b_size, 2, x_size, y_size, z_size, dtype=torch.float32, device=self.device)
 
-        for b_idx, (date, sample_idx) in enumerate(sample_idx_batch):
-            amdar_tensor, ecmwf_tensor = self.build_task(date, sample_idx, x_size, y_size, z_size)
+        for b_idx, ((year, month, day), sample_idx) in enumerate(sample_idx_batch):
+            amdar_tensor, ecmwf_tensor = self.build_task(year, month, day, sample_idx, x_size, y_size, z_size)
             amdar_batch[b_idx] = amdar_tensor
             ecmwf_batch[b_idx] = ecmwf_tensor
 
@@ -65,15 +65,15 @@ class TaskBuilder:
 
         
 
-    def build_task(self, date, sample_idx, x_size, y_size, z_size):
+    def build_task(self, year, month, day, sample_idx, x_size, y_size, z_size):
         # build a task for a given sample, which includes the context and target points and values for that sample.
         
         # centre the coordinates for the sample based on the lat/lon/alt of the sample
         # add a random shift to the centre so the model doesn't rely on a centered sample
 
-        sample = self.amdar.fetch_one(date, sample_idx)
+        sample = self.amdar.fetch_one(year, month, day, sample_idx)
         lat, lon, time = sample[LATITUDE], sample[LONGITUDE], sample[TIME]
-
+        
         time_window_seconds = self.settings['training']['time_window_secs']
 
         lat += metres_to_degrees(np.random.normal(0, self.settings['training']['random_shift_variance_km']), lat)[0]
@@ -91,6 +91,7 @@ class TaskBuilder:
         lon_max = lon + metres_to_degrees(xy_window_size_m / 2, lat)[1]
         
         # now fetch all the data within the bounds and time window
+        # the bug is in this function - empty arrays are being returned.
         df = self.amdar.fetch_for_batch((lat_min, lat_max), (lon_min, lon_max), (alt_min_m, alt_max_m), time, time_window_seconds)
         ecmwf = self.ecmwf.fetch_for_batch((lat_min, lat_max), (lon_min, lon_max), time, time_window_seconds)
 

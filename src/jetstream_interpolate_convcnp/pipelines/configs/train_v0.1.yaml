@@ -26,6 +26,7 @@ settings:
 environment:
   small_ds: true
   tensorboard_log_dir: './tb'
+  xtk_dir: './vtk'
 
 training:
   num_epochs: 1
@@ -54,8 +55,10 @@ execute:
   dataset_preprocessing: false
 
   preprocessing:
-    era5: true
-    ecmwf: true
+    era5: false
+    ecmwf: false
     amdar: true
 
   train: true
+
+  vtk_output: false

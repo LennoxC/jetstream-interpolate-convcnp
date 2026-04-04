@@ -14,7 +14,15 @@ class Sampler:
         # first sample n dates from the train_dates distribution
         date_dist = self.global_sampler.train_dates if mode == 'train' else self.global_sampler.test_dates
 
-        sampled_dates = np.random.choice(list(date_dist.keys()), size=n, replace=True, p=list(list(date_dist.values())/sum(date_dist.values())))
+        if not date_dist:
+            raise ValueError(f"No dates available for mode='{mode}'")
+
+        dates = list(date_dist.keys())
+        weights = np.array(list(date_dist.values()), dtype=float)
+        probabilities = weights / weights.sum()
+
+        sampled_date_idx = np.random.choice(len(dates), size=n, replace=True, p=probabilities)
+        sampled_dates = [dates[idx] for idx in sampled_date_idx]
         
         date_sample = {date: date_dist[date] for date in sampled_dates}
         

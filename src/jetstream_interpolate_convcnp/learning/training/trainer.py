@@ -12,7 +12,6 @@ class Trainer:
         self.model = model_constructor.model
 
     def train(self):
-        #for step in range(self.sampler.train_size // self.settings['training']['batch_size']):
         for step in range(1): # just one step for now to test the training loop
             batch_idx = self.sampler.sample_readings(self.settings['training']['batch_size'], mode='train')
             amdar_tasks, ecmwf_tasks = self.task_builder.build_tasks(batch_idx)
@@ -24,10 +23,10 @@ class Trainer:
             print(f"Step {step}: AMDAR batch first sample velocity values: {amdar_tasks[0, :, 0, 0, 0]}, ECMWF batch first sample velocity values: {ecmwf_tasks[0, :, 0, 0, 0]}")
 
             # show in paraview
-            if step == 0:
+            if step == 0 and self.settings['execution']['vtk_output']:
                 from jetstream_interpolate_convcnp.plotting.vti import save_batch_to_vtk
-                save_batch_to_vtk(amdar_tasks, filename_prefix="amdar_train")
-                save_batch_to_vtk(ecmwf_tasks, filename_prefix="ecmwf_train")
+                save_batch_to_vtk(amdar_tasks, filename_prefix=f"{self.settings['environment']['xtk_dir']}/amdar_train")
+                save_batch_to_vtk(ecmwf_tasks, filename_prefix=f"{self.settings['environment']['xtk_dir']}/ecmwf_train")
         
 
     def validate(self):

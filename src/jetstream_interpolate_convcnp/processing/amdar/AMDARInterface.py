@@ -8,19 +8,17 @@ class AMDARInterface:
         self.settings = settings
         self.save_path = self.settings['paths']['process_amdar_path_base']
 
-    def fetch_one(self, date, index):
-        date = pd.to_datetime(date)
+    def fetch_one(self, year, month, day, index):
         # fetch the partition for the given date, then return the row at the given index
-        partition_path = f"{self.save_path}date={date.strftime('%Y-%m-%d')} 00:00:00"
+        partition_path = f"{self.save_path}year={year}/month={month}/day={day}"
         df = dd.read_parquet(partition_path).compute()
         if index >= len(df):
-            raise IndexError(f"Index {index} out of range for date {date} with {len(df)} samples")
+            raise IndexError(f"Index {index} out of range for date {year}-{month}-{day} with {len(df)} samples")
         return df.iloc[index]
     
-    def fetch_partition(self, date, lat, lon):
+    def fetch_partition(self, year, month, day, lat, lon):
         # fetch the partition for the given date, lat, and lon
-        date = pd.to_datetime(date)
-        partition_path = f"{self.save_path}date={date.strftime('%Y-%m-%d')} 00:00:00/{LATITUDE}_int={int(np.floor(lat))}/{LONGITUDE}_int={int(np.floor(lon))}"
+        partition_path = f"{self.save_path}year={year}/month={month}/day={day}/{LATITUDE}_int={int(np.floor(lat))}/{LONGITUDE}_int={int(np.floor(lon))}"
         df = dd.read_parquet(partition_path).compute()
         return df
     
@@ -45,7 +43,7 @@ class AMDARInterface:
             date = pd.to_datetime(date)
             for lat in lat_partitions:
                 for lon in lon_partitions:
-                    paths.append(f"{self.save_path}date={date.strftime('%Y-%m-%d')} 00:00:00/{LATITUDE}_int={lat}/{LONGITUDE}_int={lon}/part.*.parquet")
+                    paths.append(f"{self.save_path}year={date.year}/month={date.month}/day={date.day}/{LATITUDE}_int={lat}/{LONGITUDE}_int={lon}/part.*.parquet")
         
         # read all the data in a dask dataframe
         df = dd.read_parquet(paths)

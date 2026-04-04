@@ -1,5 +1,3 @@
-from turtle import pd
-
 import dask.dataframe as dd
 import numpy as np
 from jetstream_interpolate_convcnp.utils.constants import (
@@ -61,40 +59,40 @@ class AMDARProcessor:
 
         # Drop invalid rows BEFORE datetime
         self.ds = self.ds.dropna(subset=required_cols)
-
-        # Fast numeric datetime (no warnings)
-        self.ds['minute'] = self.ds['minute'].fillna(0)
-        self.ds['second'] = self.ds['second'].fillna(0)
-
         time_cols = ['year', 'month', 'day', 'hour', 'minute', 'second']
 
-        # Convert safely
+        # Convert ALL time columns to numeric first
         for col in time_cols:
             self.ds[col] = dd.to_numeric(self.ds[col], errors='coerce')
 
-        
+        # Fill optional fields
         self.ds['minute'] = self.ds['minute'].fillna(0)
         self.ds['second'] = self.ds['second'].fillna(0)
 
-        self.ds = self.ds.dropna(subset=['year', 'month', 'day', 'hour'])
+        # Now drop NaNs safely
+        self.ds = self.ds.dropna(subset=time_cols)
 
+        # Cast AFTER validation
         for col in time_cols:
             self.ds[col] = self.ds[col].astype('int64')
 
-        # Build datetime
+        # Build datetime (your string method is fine)
+        date_str = (
+            self.ds['year'].astype(str) + '-' +
+            self.ds['month'].astype(str).str.zfill(2) + '-' +
+            self.ds['day'].astype(str).str.zfill(2)
+        )
+
         self.ds[TIME] = (
-            dd.to_datetime(
-                self.ds['year'] * 10000 + self.ds['month'] * 100 + self.ds['day'],
-                format='%Y%m%d',
-                errors='coerce'
-            )
+            dd.to_datetime(date_str, format='%Y-%m-%d', errors='coerce', utc=True)
             + dd.to_timedelta(self.ds['hour'], unit='h')
             + dd.to_timedelta(self.ds['minute'], unit='m')
             + dd.to_timedelta(self.ds['second'], unit='s')
         )
 
+        self.ds[DATE] = self.ds[TIME].dt.strftime('%Y-%m-%d')
+
         self.ds = self.ds.dropna(subset=[TIME])
-        self.ds[DATE] = self.ds[TIME].dt.floor('D')
 
         # Wind components
         self.ds[WIND_U] = -self.ds['wind_speed'] * np.sin(np.radians(self.ds['wind_direction']))
@@ -111,7 +109,7 @@ class AMDARProcessor:
             min_date = self.ds[DATE].min()
             self.ds = self.ds[self.ds[DATE] == min_date]
 
-        target_cols = [TIME, DATE, LATITUDE, LONGITUDE, f"{LATITUDE}_int", f"{LONGITUDE}_int", ALTITUDE, WIND_U, WIND_V]
+        target_cols = [TIME, DATE, 'year', 'month', 'day', LATITUDE, LONGITUDE, f"{LATITUDE}_int", f"{LONGITUDE}_int", ALTITUDE, WIND_U, WIND_V]
 
         self.ds = self.ds[target_cols]
         self.ds = self.ds.dropna(subset=target_cols)
@@ -134,7 +132,10 @@ class AMDARProcessor:
             partition_on=self.partition_cols if self.partition_cols else None,
             schema={
                 TIME: 'timestamp[us]',
-                DATE: 'timestamp[us]',
+                DATE: 'string',
+                'year': 'int64',
+                'month': 'int64',
+                'day': 'int64',
                 LATITUDE: 'double',
                 LONGITUDE: 'double',
                 f"{LATITUDE}_int": 'int64',
