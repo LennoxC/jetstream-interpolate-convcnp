@@ -13,7 +13,9 @@ class Trainer:
 
     def train(self):
         for step in range(1): # just one step for now to test the training loop
+            print("Sampling batch...")
             batch_idx = self.sampler.sample_readings(self.settings['training']['batch_size'], mode='train')
+            print("Building tasks...")
             amdar_tasks, ecmwf_tasks = self.task_builder.build_tasks(batch_idx)
             
             print(f"Step {step}: AMDAR batch shape: {amdar_tasks.shape}, ECMWF batch shape: {ecmwf_tasks.shape}")

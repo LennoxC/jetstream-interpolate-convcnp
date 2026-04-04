@@ -73,7 +73,7 @@ class TaskBuilder:
 
         sample = self.amdar.fetch_one(year, month, day, sample_idx)
         lat, lon, time = sample[LATITUDE], sample[LONGITUDE], sample[TIME]
-        
+
         time_window_seconds = self.settings['training']['time_window_secs']
 
         lat += metres_to_degrees(np.random.normal(0, self.settings['training']['random_shift_variance_km']), lat)[0]
@@ -92,9 +92,13 @@ class TaskBuilder:
         
         # now fetch all the data within the bounds and time window
         # the bug is in this function - empty arrays are being returned.
+        print("Fetching amdar")
         df = self.amdar.fetch_for_batch((lat_min, lat_max), (lon_min, lon_max), (alt_min_m, alt_max_m), time, time_window_seconds)
+        print(f"Fetched {len(df)} amdar samples")
+        print("Fetching ecmwf")
         ecmwf = self.ecmwf.fetch_for_batch((lat_min, lat_max), (lon_min, lon_max), time, time_window_seconds)
-
+        print(f"Fetched ecmwf data with shape {ecmwf[WIND_U].shape} for u and {ecmwf[WIND_V].shape} for v")
+        
         # convert amdar lat/lon/alt to grid coordinates
         amdar_x_grid, amdar_y_grid, amdar_z_grid = self.offgrid_coords_to_mesh(
             df[LATITUDE],
