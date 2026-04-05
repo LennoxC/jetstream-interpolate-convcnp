@@ -89,7 +89,6 @@ def dataset_conversions(settings):
                                          partition_cols=['year', 'month', 'day', f"{LATITUDE}_int", f"{LONGITUDE}_int"], 
                                          reduce_time=settings['environment']['small_ds'],
                                          skiprows=184,
-                                         #skiprows=600000, # debug only
                                          encoding_errors='ignore')
         amdar_processor.initialize(save_path=paths['process_amdar_path_base'])
 

@@ -1,0 +1,67 @@
+# settings for the training v0.1 pipeline
+
+# dataset settings
+
+experiment_name: 'tests'
+
+paths:
+  # era5_norm_params_path: '/mnt/hdd/jetstream/data/processed/train_v0.1/norm/era5/'
+  ecmwf_norm_params_path: '/mnt/hdd/jetstream/data/tests/ecmwf/norm/'
+  amdar_norm_params_path: '/mnt/hdd/jetstream/data/tests/ceda/norm/'
+
+  # era5_load_path: '/mnt/hdd/jetstream/data/development/era5/july2019/reanalysis_2019_07/pressure/*/*/*.nc'
+  ecmwf_load_path: '/mnt/hdd/jetstream/data/tests/ecmwf/'
+  amdar_load_path: '/mnt/hdd/jetstream/data/tests/ceda/*.csv'
+
+  process_base: '/mnt/hdd/jetstream/data/tests/processed/'
+  # process_era5_path_base:  '/mnt/hdd/jetstream/data/processed/train_v0.1/datasets/era5/era5.nc'
+  process_ecmwf_path_base: '/mnt/hdd/jetstream/data/tests/processed/ecmwf/ecmwf.nc'
+  process_amdar_path_base: '/mnt/hdd/jetstream/data/tests/processed/amdar/'
+
+settings:
+  clear_dataset_save_dir_on_startup: true
+  clear_norm_params_on_startup: true
+
+# use small datasets in development, often by subsetting in time.
+environment:
+  small_ds: false
+  tensorboard_log_dir: './tb'
+  xtk_dir: './vtk'
+
+training:
+  num_epochs: 1
+  batch_size: 4
+  train_dates_pct: 0.8
+  xy_resolution: 20 # number of grid points in xy plane
+  z_resolution: 10 # vertical resolution in vertical plane
+  xy_window_size_km: 100 # width and height of the input grid in kilometers
+  z_window_size_km: 5 # vertical size of the input grid in kilometers
+  z_min_km: 1 # minimum altitude of the input grid in kilometers
+  time_window_secs: 300 # 1 hour time window around each amdar observation to consider for model input
+  random_shift_variance_km: 0
+
+# model settings
+model:
+  likelihood: "lowrank"
+  conv_arch: "unet-res"
+  unet_channels: 
+    - 4
+    - 4
+  unet_kernels: 5
+  points_per_unit: 5
+
+# control which steps of the pipeline to execute
+# 
+# ===== not needed for testing =====
+# 
+# execute:
+#   dataset_preprocessing: true
+# 
+#   preprocessing:
+#     era5: false
+#     ecmwf: true
+#     amdar: true
+# 
+#   train: true
+# 
+#   vtk_output: true

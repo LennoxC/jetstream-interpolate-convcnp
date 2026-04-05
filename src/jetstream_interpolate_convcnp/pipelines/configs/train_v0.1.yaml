@@ -24,20 +24,20 @@ settings:
 
 # use small datasets in development, often by subsetting in time.
 environment:
-  small_ds: true
+  small_ds: false
   tensorboard_log_dir: './tb'
   xtk_dir: './vtk'
 
 training:
   num_epochs: 1
-  batch_size: 16
+  batch_size: 4
   train_dates_pct: 0.8
   xy_resolution: 200 # number of grid points in xy plane
   z_resolution: 100 # vertical resolution in vertical plane
-  xy_window_size_km: 200 # width and height of the input grid in kilometers
-  z_window_size_km: 8 # vertical size of the input grid in kilometers
-  z_min_km: 2 # minimum altitude of the input grid in kilometers
-  time_window_secs: 3600 # 1 hour time window around each amdar observation to consider for model input
+  xy_window_size_km: 400 # width and height of the input grid in kilometers
+  z_window_size_km: 11 # vertical size of the input grid in kilometers
+  z_min_km: 1 # minimum altitude of the input grid in kilometers
+  time_window_secs: 600 # 1 hour time window around each amdar observation to consider for model input
   random_shift_variance_km: 20
 
 # model settings
@@ -52,13 +52,13 @@ model:
 
 # control which steps of the pipeline to execute
 execute:
-  dataset_preprocessing: false
+  dataset_preprocessing: true
 
   preprocessing:
     era5: false
-    ecmwf: false
-    amdar: false
+    ecmwf: true
+    amdar: true
 
   train: true
 
-  vtk_output: false
+  vtk_output: true

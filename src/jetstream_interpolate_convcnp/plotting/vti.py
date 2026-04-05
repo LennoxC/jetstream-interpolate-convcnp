@@ -13,16 +13,25 @@ def save_batch_to_vtk(tensor, filename_prefix="flow"):
         u = tensor[b, 0]
         v = tensor[b, 1]
         
-        # Create grid
-        grid = pv.ImageData()
-        grid.dimensions = (X, Y, Z)
-        grid.spacing = (1, 1, 1)
-        grid.origin = (0, 0, 0)
+        # Find non-zero voxels
+        mask = (np.abs(u) + np.abs(v)) > 1e-6
+        x, y, z = np.where(mask)
         
-        # Flatten in Fortran order (VERY IMPORTANT for VTK)
-        velocity = np.stack([u, v, np.zeros_like(u)], axis=-1)
-        velocity = velocity.reshape(-1, 3, order="F")
+        if len(x) == 0:
+            print("No data in batch", b)
+            continue
         
+        points = np.stack([x, y, z], axis=1).astype(np.float32)
+        
+        velocity = np.stack([
+            u[mask],
+            v[mask],
+            np.zeros_like(u[mask])
+        ], axis=1)
+        
+        grid = pv.PolyData(points)
         grid["velocity"] = velocity
         
-        grid.save(f"{filename_prefix}_{b}.vti")
+        grid.set_active_vectors("velocity")
+        
+        grid.save(f"{filename_prefix}_{b}.vtp")

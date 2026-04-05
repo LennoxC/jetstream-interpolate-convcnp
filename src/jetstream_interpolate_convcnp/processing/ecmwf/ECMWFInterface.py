@@ -12,7 +12,11 @@ class ECMWFInterface:
         # eventually this will read from the ECMWF data on disk and return the relevant subset of the data
         
         ds = xr.load_dataset(self.ecmwf_path)
-        timestamp_start = timestamp_end - np.timedelta64(time_window_secs, 's')
-        ds = ds.sel(time=slice(timestamp_start, timestamp_end), lat=slice(lat_range[0], lat_range[1]), lon=slice(lon_range[0], lon_range[1]))
+        # timestamp_start = timestamp_end - np.timedelta64(time_window_secs, 's')
+        df = (ds.sel(time=timestamp_end, method='pad')
+              .sel(lat=slice(lat_range[0], lat_range[1]), lon=slice(lon_range[0], lon_range[1]))
+              [['time', 'lat', 'lon', 'altitude', 'u', 'v']]
+              .to_dataframe()
+              .reset_index())
         
-        return ds
+        return df

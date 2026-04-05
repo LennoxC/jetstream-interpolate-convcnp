@@ -3,9 +3,13 @@
 !.pixi/config.toml
 .pyc
 *.vti
-vtk/*
 
 src/utils/cds/requests/july_2019.py
 src/utils/cds/run.py
 
+test_data
+test_data/*
+vtk
+vtk/*
 tb
+tb/*

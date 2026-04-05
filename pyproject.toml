@@ -19,6 +19,7 @@ cuda = "12.9"
 [tool.pixi.environments]
 gpu = ["gpu"]
 default = ["gpu"]
+test = ["test"]
 
 [tool.pixi.pypi-dependencies]
 jetstream_interpolate_convcnp = { path = ".", editable = true }
@@ -39,3 +40,6 @@ tensorboard = ">=2.20.0,<3"
 [tool.pixi.feature.gpu.dependencies]
 cuda-version = "12.9.*"
 pytorch-gpu = "*"
+
+[tool.pixi.feature.test.dependencies]
+pytest = "*"

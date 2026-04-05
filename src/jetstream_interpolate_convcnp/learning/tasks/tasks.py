@@ -40,7 +40,7 @@ mask = mask.unsqueeze(1) # shape: (b_size, 1, x_size, y_size, z_size) to match y
 class TaskBuilder:
     def __init__(self, settings):
         self.settings = settings
-        self.amdar = AMDARInterface(settings)
+        self.amdar = AMDARInterface(settings, normalize=True)
         self.ecmwf = ECMWFInterface(settings)
         self.device = torch.device(device)
 
@@ -55,13 +55,15 @@ class TaskBuilder:
 
         amdar_batch = torch.zeros(b_size, 2, x_size, y_size, z_size, dtype=torch.float32, device=self.device)
         ecmwf_batch = torch.zeros(b_size, 2, x_size, y_size, z_size, dtype=torch.float32, device=self.device)
+        meta = []
 
         for b_idx, ((year, month, day), sample_idx) in enumerate(sample_idx_batch):
-            amdar_tensor, ecmwf_tensor = self.build_task(year, month, day, sample_idx, x_size, y_size, z_size)
+            amdar_tensor, ecmwf_tensor, metadata = self.build_task(year, month, day, sample_idx, x_size, y_size, z_size)
             amdar_batch[b_idx] = amdar_tensor
             ecmwf_batch[b_idx] = ecmwf_tensor
+            meta.append(metadata)
 
-        return amdar_batch, ecmwf_batch
+        return amdar_batch, ecmwf_batch, meta
 
         
 
@@ -76,6 +78,7 @@ class TaskBuilder:
 
         time_window_seconds = self.settings['training']['time_window_secs']
 
+        # add a small random offset to prevent the model learning to have a centred amdar reading
         lat += metres_to_degrees(np.random.normal(0, self.settings['training']['random_shift_variance_km']), lat)[0]
         lon += metres_to_degrees(np.random.normal(0, self.settings['training']['random_shift_variance_km']), lat)[1]
 
@@ -90,14 +93,20 @@ class TaskBuilder:
         lon_min = lon - metres_to_degrees(xy_window_size_m / 2, lat)[1]
         lon_max = lon + metres_to_degrees(xy_window_size_m / 2, lat)[1]
         
+        metadata = {
+            'lat_min': lat_min,
+            'lat_max': lat_max,
+            'lon_min': lon_min,
+            'lon_max': lon_max,
+            'alt_min_m': alt_min_m,
+            'alt_max_m': alt_max_m,
+            'time': time,
+            'time_window': time_window_seconds
+        }
+
         # now fetch all the data within the bounds and time window
-        # the bug is in this function - empty arrays are being returned.
-        print("Fetching amdar")
         df = self.amdar.fetch_for_batch((lat_min, lat_max), (lon_min, lon_max), (alt_min_m, alt_max_m), time, time_window_seconds)
-        print(f"Fetched {len(df)} amdar samples")
-        print("Fetching ecmwf")
-        ecmwf = self.ecmwf.fetch_for_batch((lat_min, lat_max), (lon_min, lon_max), time, time_window_seconds)
-        print(f"Fetched ecmwf data with shape {ecmwf[WIND_U].shape} for u and {ecmwf[WIND_V].shape} for v")
+        ecmwf_df = self.ecmwf.fetch_for_batch((lat_min, lat_max), (lon_min, lon_max), time, time_window_seconds)
         
         # convert amdar lat/lon/alt to grid coordinates
         amdar_x_grid, amdar_y_grid, amdar_z_grid = self.offgrid_coords_to_mesh(
@@ -111,8 +120,10 @@ class TaskBuilder:
             y_size,
             z_size,
         )
-        ecmwf_x_grid, ecmwf_y_grid, ecmwf_z_grid = self.gridded_coords_to_mesh(
-            ecmwf,
+        ecmwf_x_grid, ecmwf_y_grid, ecmwf_z_grid = self.offgrid_coords_to_mesh(
+            ecmwf_df[LATITUDE],
+            ecmwf_df[LONGITUDE],
+            ecmwf_df[ALTITUDE],
             (lat_min, lat_max),
             (lon_min, lon_max),
             (alt_min_m, alt_max_m),
@@ -122,6 +133,7 @@ class TaskBuilder:
         )
 
         amdar_tensor = torch.zeros(2, x_size, y_size, z_size, dtype=torch.float32, device=self.device)
+        ecmwf_tensor = torch.zeros(2, x_size, y_size, z_size, dtype=torch.float32, device=self.device)
         if len(df) > 0:
             amdar_u = torch.as_tensor(df[WIND_U].to_numpy(dtype=np.float32), device=self.device)
             amdar_v = torch.as_tensor(df[WIND_V].to_numpy(dtype=np.float32), device=self.device)
@@ -132,29 +144,20 @@ class TaskBuilder:
             amdar_tensor[0, x_idx, y_idx, z_idx] = amdar_u
             amdar_tensor[1, x_idx, y_idx, z_idx] = amdar_v
 
-        # second are the gridded ecmwf points in the xarray ds
-        ecmwf_tensor = torch.zeros(2, x_size, y_size, z_size, dtype=torch.float32, device=self.device)
-        ecmwf_u = ecmwf[WIND_U]
-        ecmwf_v = ecmwf[WIND_V]
-        if TIME in ecmwf_u.dims:
-            ecmwf_u = ecmwf_u.mean(dim=TIME)
-            ecmwf_v = ecmwf_v.mean(dim=TIME)
-        if all(dim in ecmwf_u.dims for dim in (ALTITUDE, LATITUDE, LONGITUDE)):
-            ecmwf_u = ecmwf_u.transpose(ALTITUDE, LATITUDE, LONGITUDE)
-            ecmwf_v = ecmwf_v.transpose(ALTITUDE, LATITUDE, LONGITUDE)
+        if len(ecmwf_df) > 0:
+            ecmwf_u_values = ecmwf_df[WIND_U].to_numpy(dtype=np.float32).copy()
+            ecmwf_v_values = ecmwf_df[WIND_V].to_numpy(dtype=np.float32).copy()
 
-        ecmwf_u_vals = torch.as_tensor(np.ravel(ecmwf_u.values).astype(np.float32), device=self.device)
-        ecmwf_v_vals = torch.as_tensor(np.ravel(ecmwf_v.values).astype(np.float32), device=self.device)
-        ex_idx = torch.as_tensor(np.ravel(ecmwf_x_grid), dtype=torch.long, device=self.device)
-        ey_idx = torch.as_tensor(np.ravel(ecmwf_y_grid), dtype=torch.long, device=self.device)
-        ez_idx = torch.as_tensor(np.ravel(ecmwf_z_grid), dtype=torch.long, device=self.device)
+            ecmwf_u = torch.as_tensor(ecmwf_u_values, device=self.device)
+            ecmwf_v = torch.as_tensor(ecmwf_v_values, device=self.device)
+            ex_idx = torch.as_tensor(ecmwf_x_grid, dtype=torch.long, device=self.device)
+            ey_idx = torch.as_tensor(ecmwf_y_grid, dtype=torch.long, device=self.device)
+            ez_idx = torch.as_tensor(ecmwf_z_grid, dtype=torch.long, device=self.device)
 
-        n = min(ecmwf_u_vals.numel(), ex_idx.numel(), ey_idx.numel(), ez_idx.numel())
-        if n > 0:
-            ecmwf_tensor[0, ex_idx[:n], ey_idx[:n], ez_idx[:n]] = ecmwf_u_vals[:n]
-            ecmwf_tensor[1, ex_idx[:n], ey_idx[:n], ez_idx[:n]] = ecmwf_v_vals[:n]
+            ecmwf_tensor[0, ex_idx, ey_idx, ez_idx] = ecmwf_u
+            ecmwf_tensor[1, ex_idx, ey_idx, ez_idx] = ecmwf_v
 
-        return amdar_tensor, ecmwf_tensor
+        return amdar_tensor, ecmwf_tensor, metadata
 
     def offgrid_coords_to_mesh(self, lat, lon, alt, lat_bounds, lon_bounds, alt_bounds, x_size, y_size, z_size):
         # convert lat/lon/alt to x/y/z in the grid coordinates based on the centre of the grid and the window size
