@@ -75,7 +75,7 @@ def dataset_conversions(settings):
         output_dir = os.path.dirname(paths['process_amdar_path_base'])
         os.makedirs(output_dir, exist_ok=True)
 
-        amdar_processor = AMDARProcessor(partition_cols=['year', 'month', 'day', f"{LATITUDE}_int", f"{LONGITUDE}_int"], 
+        amdar_processor = AMDARProcessor(partition_cols=['year', 'month', 'day', f"coarse_{LATITUDE}", f"coarse_{LONGITUDE}"], 
                                          reduce_time=settings['environment']['small_ds'],
                                          skiprows=184,
                                          encoding_errors='ignore')

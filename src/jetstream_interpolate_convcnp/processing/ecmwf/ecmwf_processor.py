@@ -119,7 +119,6 @@ class ECMWFProcessor:
             write_index=False
         )
 
-        # --- Step 2: partition-local normalization ---
         def normalize_partition(pdf, norm_df):
             pdf = pdf.merge(norm_df, on=group_cols, how='left')
 
@@ -127,8 +126,7 @@ class ECMWFProcessor:
             pdf['v_normed'] = (pdf['v'] - pdf['v_mean']) / pdf['v_std']
 
             return pdf
-
-        # --- Step 3: EXPLICIT META (critical) ---
+        
         meta = df._meta.copy()
         meta['u_mean'] = np.float64()
         meta['u_std'] = np.float64()

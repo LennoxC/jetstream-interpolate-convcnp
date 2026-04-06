@@ -19,8 +19,8 @@ paths:
   process_amdar_path_base: '/mnt/hdd/jetstream/data/processed/train_v0.1/datasets/amdar/'
 
 settings:
-  clear_dataset_save_dir_on_startup: true
-  clear_norm_params_on_startup: true
+  clear_dataset_save_dir_on_startup: false
+  clear_norm_params_on_startup: false
 
 # use small datasets in development, often by subsetting in time.
 environment:
@@ -56,8 +56,8 @@ execute:
 
   preprocessing:
     era5: false
-    ecmwf: true
-    amdar: false
+    ecmwf: false
+    amdar: true
 
   train: false
 

@@ -39,8 +39,8 @@ class AMDARProcessor:
             '14': LATITUDE,
             '15': LONGITUDE,
             '16': ALTITUDE,
+            '25': 'wind_direction',
             '26': 'wind_speed',
-            '27': 'wind_direction'
         }
 
         self.ds = self.ds.rename(columns=source_to_target)
@@ -98,9 +98,9 @@ class AMDARProcessor:
 
         altitude_band_width_m = 2000
         self.ds['altitude_band'] = np.floor(self.ds[ALTITUDE] / altitude_band_width_m).astype('int64')
-
+        
         # normalize to ecmwf normalization params
-        self.ds = self.normalize(self.ds)
+        self.ds = self.normalize(self.ds, normalize=True)
 
         target_cols = [TIME, DATE, 'year', 'month', 'day', LATITUDE, LONGITUDE, f"coarse_{LATITUDE}", f"coarse_{LONGITUDE}", ALTITUDE, WIND_U, WIND_V, 'altitude_band', 'log_altitude', f"{WIND_U}_normed", f"{WIND_V}_normed"]
 
@@ -109,30 +109,54 @@ class AMDARProcessor:
         if self.ds.map_partitions(len).sum().compute() == 0:
             raise ValueError("No data left after preprocessing — check filters.")
     
-    def load_ecmwf_norm_params(self):
+    def normalize(self, df, normalize=True):
+        group_cols = ['altitude_band', 'coarse_lat', 'coarse_lon']
+        
         ecmwf = ECMWFProcessor()
-        params = ecmwf.load_norm_params() # these have 'altitude_band', 'coarse_lat', 'coarse_lon', 'u_mean', 'u_std', 'v_mean', 'v_std'
-        return params
+        df_norm_pd = ecmwf.load_norm_params().compute()
+
+        def normalize_partition(pdf, norm_df):
+            pdf = pdf.merge(norm_df, on=group_cols, how='left')
+
+            if normalize:
+                pdf['u_normed'] = (pdf['u'] - pdf['u_mean']) / pdf['u_std']
+                pdf['v_normed'] = (pdf['v'] - pdf['v_mean']) / pdf['v_std']
+
+            if not normalize:
+                pdf['u'] = pdf[f"{WIND_U}_normed"] * pdf['u_std'] + pdf['u_mean']
+                pdf['v'] = pdf[f"{WIND_V}_normed"] * pdf['v_std'] + pdf['v_mean']
+
+            return pdf
+        
+        meta = df._meta.copy()
+        meta['u_mean'] = np.float64()
+        meta['u_std'] = np.float64()
+        meta['v_mean'] = np.float64()
+        meta['v_std'] = np.float64()
+        meta['u_normed'] = np.float32()
+        meta['v_normed'] = np.float32()
+
+        return df.map_partitions(normalize_partition, df_norm_pd, meta=meta)
     
-    def normalize(self, df):
-        params = self.load_ecmwf_norm_params()
+    # def normalize(self, df):
+    #     params = self.load_ecmwf_norm_params()
+    #     
+    #     df = df.merge(params, left_on=['altitude_band', f"coarse_{LATITUDE}", f"coarse_{LONGITUDE}"], right_on=['altitude_band', 'coarse_lat', 'coarse_lon'], how='left')
+    # 
+    #     df[f"{WIND_U}_normed"] = (df[WIND_U] - df['u_mean']) / df['u_std']
+    #     df[f"{WIND_V}_normed"] = (df[WIND_V] - df['v_mean']) / df['v_std']
+    # 
+    #     return df
 
-        df = df.merge(params, left_on=['altitude_band', f"coarse_{LATITUDE}", f"coarse_{LONGITUDE}"], right_on=['altitude_band', 'coarse_lat', 'coarse_lon'], how='left')
-
-        df[f"{WIND_U}_normed"] = (df[WIND_U] - df['u_mean']) / df['u_std']
-        df[f"{WIND_V}_normed"] = (df[WIND_V] - df['v_mean']) / df['v_std']
-
-        return df
-
-    def unnormalize(self, df):
-        params = self.load_ecmwf_norm_params()
-
-        df = df.merge(params, left_on=['altitude_band', f"coarse_{LATITUDE}", f"coarse_{LONGITUDE}"], right_on=['altitude_band', 'coarse_lat', 'coarse_lon'], how='left')
-
-        df[WIND_U] = df[f"{WIND_U}_normed"] * df['u_std'] + df['u_mean']
-        df[WIND_V] = df[f"{WIND_V}_normed"] * df['v_std'] + df['v_mean']
-
-        return df
+    # def unnormalize(self, df):
+    #     params = self.load_ecmwf_norm_params()
+    #  
+    #     df = df.merge(params, left_on=['altitude_band', f"coarse_{LATITUDE}", f"coarse_{LONGITUDE}"], right_on=['altitude_band', 'coarse_lat', 'coarse_lon'], how='left')
+    # 
+    #     df[WIND_U] = df[f"{WIND_U}_normed"] * df['u_std'] + df['u_mean']
+    #     df[WIND_V] = df[f"{WIND_V}_normed"] * df['v_std'] + df['v_mean']
+    # 
+    #     return df
 
     def run(self):
         self.load()
@@ -142,20 +166,24 @@ class AMDARProcessor:
         self.ds.to_parquet(
             self.save_path,
             partition_on=self.partition_cols if self.partition_cols else None,
-            # schema={
-            #     TIME: 'timestamp[s]',
-            #     DATE: 'timestamp[s]',
-            #     'year': 'int64',
-            #     'month': 'int64',
-            #     'day': 'int64',
-            #     LATITUDE: 'double',
-            #     LONGITUDE: 'double',
-            #     f"{LATITUDE}_int": 'int64',
-            #     f"{LONGITUDE}_int": 'int64',
-            #     ALTITUDE: 'double',
-            #     WIND_U: 'double',
-            #     WIND_V: 'double'
-            # },
+            schema={
+                TIME: 'timestamp[s]',
+                DATE: 'timestamp[s]',
+                'year': 'int32',
+                'month': 'int32',
+                'day': 'int32',
+                LATITUDE: 'double',
+                LONGITUDE: 'double',
+                f"coarse_{LATITUDE}": 'int32',
+                f"coarse_{LONGITUDE}": 'int32',
+                ALTITUDE: 'double',
+                WIND_U: 'double',
+                WIND_V: 'double',
+                'altitude_band': 'int32',
+                'log_altitude': 'double',
+                f"{WIND_U}_normed": 'double',
+                f"{WIND_V}_normed": 'double'
+            },
             write_index=False,
             compute=True
         )
