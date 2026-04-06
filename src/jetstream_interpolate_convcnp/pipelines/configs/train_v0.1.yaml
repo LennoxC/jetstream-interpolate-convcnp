@@ -15,7 +15,7 @@ paths:
 
   process_base: '/mnt/hdd/jetstream/data/processed/train_v0.1/datasets/'
   process_era5_path_base:  '/mnt/hdd/jetstream/data/processed/train_v0.1/datasets/era5/era5.nc'
-  process_ecmwf_path_base: '/mnt/hdd/jetstream/data/processed/train_v0.1/datasets/ecmwf/ecmwf.nc'
+  process_ecmwf_path_base: '/mnt/hdd/jetstream/data/processed/train_v0.1/datasets/ecmwf/'
   process_amdar_path_base: '/mnt/hdd/jetstream/data/processed/train_v0.1/datasets/amdar/'
 
 settings:
@@ -57,8 +57,8 @@ execute:
   preprocessing:
     era5: false
     ecmwf: true
-    amdar: true
+    amdar: false
 
-  train: true
+  train: false
 
   vtk_output: true

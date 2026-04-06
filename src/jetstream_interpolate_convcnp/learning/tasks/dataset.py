@@ -1,4 +1,4 @@
-from jetstream_interpolate_convcnp.processing.amdar.AMDARProcessor import AMDARProcessor
+from jetstream_interpolate_convcnp.processing.amdar.amdar_processor import AMDARProcessor
 from jetstream_interpolate_convcnp.utils.constants import DATE, TIME, LATITUDE, LONGITUDE, WIND_U, WIND_V
 import dask.dataframe as dd
 import numpy as np

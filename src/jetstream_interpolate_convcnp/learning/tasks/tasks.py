@@ -1,7 +1,7 @@
 import torch
 from jetstream_interpolate_convcnp.utils.device import device
-from jetstream_interpolate_convcnp.processing.amdar.AMDARInterface import AMDARInterface
-from jetstream_interpolate_convcnp.processing.ecmwf.ECMWFInterface import ECMWFInterface
+from jetstream_interpolate_convcnp.processing.amdar.amdar_interface import AMDARInterface
+from jetstream_interpolate_convcnp.processing.ecmwf.ecmwf_interface import ECMWFInterface
 from jetstream_interpolate_convcnp.utils.constants import ALTITUDE, TIME, LATITUDE, LONGITUDE, WIND_U, WIND_V
 from jetstream_interpolate_convcnp.utils.conversions import metres_to_degrees
 import numpy as np

@@ -5,7 +5,7 @@ from jetstream_interpolate_convcnp.processing.norm.netcdf_norm import NetCDFNorm
 from jetstream_interpolate_convcnp.pipelines.train_v0_1.dataset_preparation import convert_ecmwf
 from jetstream_interpolate_convcnp.utils.constants import TIME, LATITUDE, LONGITUDE, WIND_U, WIND_V
 from jetstream_interpolate_convcnp.processing.ecmwf.ecmwf_processor import ECMWFProcessor
-from jetstream_interpolate_convcnp.processing.amdar.AMDARProcessor import AMDARProcessor
+from jetstream_interpolate_convcnp.processing.amdar.amdar_processor import AMDARProcessor
 
 # Test the data processing pipeline.
 # - Process the datasets, create a sample, and normalize.

@@ -3,6 +3,7 @@
 !.pixi/config.toml
 .pyc
 *.vti
+__pycache__/
 
 src/utils/cds/requests/july_2019.py
 src/utils/cds/run.py
