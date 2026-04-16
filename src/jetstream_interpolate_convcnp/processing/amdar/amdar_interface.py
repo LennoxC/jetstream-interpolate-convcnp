@@ -61,8 +61,10 @@ class AMDARInterface:
         ]
 
         if (len(df) == 0):
-            raise ValueError(f"AFter filtering, AMDAR dataset has length zero. Params: lat_range={lat_range}, lon_range={lon_range}, alt_range={alt_range}, timestamp_start={timestamp_start}, timestamp_end={timestamp_end}")
+            raise ValueError(f"After filtering, AMDAR dataset has length zero. Params: lat_range={lat_range}, lon_range={lon_range}, alt_range={alt_range}, timestamp_start={timestamp_start}, timestamp_end={timestamp_end}")
 
         df = df.compute()
+        
+        print(f"After computing, AMDAR dataset has length {len(df)}. Params: lat_range={lat_range}, lon_range={lon_range}, alt_range={alt_range}, timestamp_start={timestamp_start}, timestamp_end={timestamp_end}")
 
         return df

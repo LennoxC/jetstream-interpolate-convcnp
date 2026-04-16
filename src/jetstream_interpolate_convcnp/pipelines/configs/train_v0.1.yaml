@@ -31,7 +31,7 @@ environment:
 
 training:
   num_epochs: 1
-  batch_size: 4
+  batch_size: 12
   train_dates_pct: 0.8
   xy_resolution: 200 # number of grid points in xy plane
   z_resolution: 100 # vertical resolution in vertical plane

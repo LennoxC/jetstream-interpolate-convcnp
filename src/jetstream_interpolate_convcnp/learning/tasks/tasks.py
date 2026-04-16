@@ -106,9 +106,9 @@ class TaskBuilder:
 
         # now fetch all the data within the bounds and time window
         df = self.amdar.fetch_for_batch((lat_min, lat_max), (lon_min, lon_max), (alt_min_m, alt_max_m), time, time_window_seconds)
-        ecmwf_df = self.ecmwf.fetch_for_batch((lat_min, lat_max), (lon_min, lon_max), time, time_window_seconds)
+        ecmwf_df = self.ecmwf.fetch_for_batch((lat_min, lat_max), (lon_min, lon_max), time, 60*60*6) # ecmwf data arrives hourly
 
-        print(f"ECMWF: {len(df)}, AMDAR: {len(ecmwf_df)}")
+        print(f"AMDAR: {len(df)}, ECMWF: {len(ecmwf_df)}")
 
         # convert amdar lat/lon/alt to grid coordinates
         amdar_x_grid, amdar_y_grid, amdar_z_grid = self.offgrid_coords_to_mesh(
