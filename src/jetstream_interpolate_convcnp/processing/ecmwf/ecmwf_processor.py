@@ -3,11 +3,12 @@ import xarray as xr
 import numpy as np
 import dask.dataframe as dd
 import dask
+import pandas as pd
 import re
 from jetstream_interpolate_convcnp.utils.settings import settings
 
 class ECMWFProcessor:
-    def __init__(self, chunking_in=None, do_normalize=True, reduce_time=False):
+    def __init__(self, chunking_in=None, do_normalize=True, reduce_time=False, normalization_mode='per_coordinate'):
         self.dataset_path = settings['paths']['ecmwf_load_path']
         self.norm_path = settings['paths']['ecmwf_norm_params_path']
         self.save_path = settings['paths']['process_ecmwf_path_base']
@@ -15,6 +16,14 @@ class ECMWFProcessor:
         self.chunking_in = chunking_in
         self.do_normalize = do_normalize
         self.reduce_time = reduce_time
+        self.normalization_mode = normalization_mode
+
+        valid_modes = {'per_coordinate', 'global'}
+        if self.normalization_mode not in valid_modes:
+            raise ValueError(
+                f"Unsupported normalization_mode '{self.normalization_mode}'. "
+                f"Expected one of {sorted(valid_modes)}"
+            )
         
 
     def load(self):
@@ -89,7 +98,8 @@ class ECMWFProcessor:
         df['coarse_lat'] = (np.floor(df['lat'] / coarsening_factor_deg) * coarsening_factor_deg).astype('int32')
         df['coarse_lon'] = (np.floor(df['lon'] / coarsening_factor_deg) * coarsening_factor_deg).astype('int32')
         
-        df = self.normalize(df)
+        if self.do_normalize:
+            df = self.normalize(df)
 
         df.to_parquet(
             self.save_path,
@@ -100,27 +110,48 @@ class ECMWFProcessor:
     def normalize(self, df):
         group_cols = ['altitude_band', 'coarse_lat', 'coarse_lon']
 
-        # --- Step 1: compute global stats (small table) ---
-        # group by and keep altitude_band, coarse_lat, coarse_lon as keys for normalization
-        df_norm = df.groupby(group_cols).agg(
-            u_mean=('u', 'mean'),
-            u_std=('u', 'std'),
-            v_mean=('v', 'mean'),
-            v_std=('v', 'std'),
-        ).reset_index().persist()
+        if self.normalization_mode == 'per_coordinate':
+            # Group by local bins for coordinate-conditioned normalization.
+            df_norm = df.groupby(group_cols).agg(
+                u_mean=('u', 'mean'),
+                u_std=('u', 'std'),
+                v_mean=('v', 'mean'),
+                v_std=('v', 'std'),
+            ).reset_index().persist()
+            df_norm_pd = df_norm.compute()
+        else:
+            # Compute global stats with partition-wise Dask reductions for scalability.
+            u_mean, u_std, v_mean, v_std = dask.compute(
+                df['u'].mean(),
+                df['u'].std(),
+                df['v'].mean(),
+                df['v'].std(),
+            )
+            df_norm_pd = pd.DataFrame(
+                {
+                    'u_mean': [u_mean],
+                    'u_std': [u_std],
+                    'v_mean': [v_mean],
+                    'v_std': [v_std],
+                }
+            )
 
-        # materialize small lookup table
-        df_norm_pd = df_norm.compute()
+        if self.normalization_mode == 'global':
+            df_norm = dd.from_pandas(df_norm_pd, npartitions=1)
+        else:
+            df_norm = dd.from_pandas(df_norm_pd, npartitions=max(1, df.npartitions))
 
-        # optional: write once here (cheaper than later)
-        df_norm.to_parquet(
-            self.norm_path,
-            partition_on=group_cols,
-            write_index=False
-        )
+        # Write norm params as a single file to avoid Hive partition detection issues
+        norm_file = self.norm_path if self.norm_path.endswith('.parquet') else f"{self.norm_path}/norm_params.parquet"
+        df_norm.to_parquet(norm_file, write_index=False)
 
         def normalize_partition(pdf, norm_df):
-            pdf = pdf.merge(norm_df, on=group_cols, how='left')
+            if self.normalization_mode == 'per_coordinate':
+                pdf = pdf.merge(norm_df, on=group_cols, how='left')
+            else:
+                pdf = pdf.assign(_norm_join_key=1)
+                norm_df = norm_df.assign(_norm_join_key=1)
+                pdf = pdf.merge(norm_df, on='_norm_join_key', how='left').drop(columns=['_norm_join_key'])
 
             pdf['u_normed'] = (pdf['u'] - pdf['u_mean']) / pdf['u_std']
             pdf['v_normed'] = (pdf['v'] - pdf['v_mean']) / pdf['v_std']
@@ -134,7 +165,7 @@ class ECMWFProcessor:
         meta['v_std'] = np.float64()
         meta['u_normed'] = np.float32()
         meta['v_normed'] = np.float32()
-
+        
         return df.map_partitions(normalize_partition, df_norm_pd, meta=meta)
 
     def unnormalize(self, df):
@@ -142,9 +173,15 @@ class ECMWFProcessor:
 
         # load small norm table
         df_norm = self.load_norm_params().compute()
+        norm_scope = self.normalization_mode
 
         def unnormalize_partition(pdf, norm_df):
-            pdf = pdf.merge(norm_df, on=group_cols, how='left')
+            if norm_scope == 'per_coordinate':
+                pdf = pdf.merge(norm_df, on=group_cols, how='left')
+            else:
+                pdf = pdf.assign(_norm_join_key=1)
+                norm_df = norm_df.assign(_norm_join_key=1)
+                pdf = pdf.merge(norm_df, on='_norm_join_key', how='left').drop(columns=['_norm_join_key'])
 
             pdf['u'] = pdf['u_normed'] * pdf['u_std'] + pdf['u_mean']
             pdf['v'] = pdf['v_normed'] * pdf['v_std'] + pdf['v_mean']
@@ -161,7 +198,8 @@ class ECMWFProcessor:
         if self.norm_path is None:
             raise ValueError("norm_path must be set to load normalization parameters")
 
-        df_norm = dd.read_parquet(self.norm_path)
+        norm_file = self.norm_path if self.norm_path.endswith('.parquet') else f"{self.norm_path}/norm_params.parquet"
+        df_norm = dd.read_parquet(norm_file)
         return df_norm
 
     def run(self):

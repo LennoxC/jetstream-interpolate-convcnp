@@ -1,6 +1,7 @@
 from jetstream_interpolate_convcnp.learning.model.construct_model import ConstructModel
 from jetstream_interpolate_convcnp.learning.tasks.sampler import Sampler
 from jetstream_interpolate_convcnp.learning.tasks.tasks import TaskBuilder
+from jetstream_interpolate_convcnp.plotting.vti import save_batch_to_vtk
 
 class Trainer:
     def __init__(self, settings):
@@ -20,7 +21,6 @@ class Trainer:
             
             # show in paraview
             if step == 0 and self.settings['execute']['vtk_output']:
-                from jetstream_interpolate_convcnp.plotting.vti import save_batch_to_vtk
                 print(metadata)
                 save_batch_to_vtk(amdar_tasks, filename_prefix=f"{self.settings['environment']['xtk_dir']}/amdar_train")
                 save_batch_to_vtk(ecmwf_tasks, filename_prefix=f"{self.settings['environment']['xtk_dir']}/ecmwf_train")

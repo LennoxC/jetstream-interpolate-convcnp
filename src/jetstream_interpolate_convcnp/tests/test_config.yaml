@@ -21,6 +21,7 @@ paths:
 settings:
   clear_dataset_save_dir_on_startup: true
   clear_norm_params_on_startup: true
+  ecmwf_normalization_mode: 'per_coordinate' # options: 'per_coordinate' or 'global'
 
 # use small datasets in development, often by subsetting in time.
 environment:

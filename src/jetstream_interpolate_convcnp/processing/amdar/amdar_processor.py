@@ -10,6 +10,7 @@ class AMDARProcessor:
     def __init__(self, partition_cols=None, reduce_time=False, **kwargs):
         self.dataset_path = settings['paths']['amdar_load_path']
         self.save_path = settings['paths']['process_amdar_path_base']
+        self.normalization_mode = settings['settings']['ecmwf_normalization_mode']
 
         self.partition_cols = partition_cols
         self.reduce_time = reduce_time
@@ -106,17 +107,23 @@ class AMDARProcessor:
 
         self.ds = self.ds[target_cols]
 
-        if self.ds.map_partitions(len).sum().compute() == 0:
-            raise ValueError("No data left after preprocessing — check filters.")
+        #if self.ds.map_partitions(len).sum().compute() == 0:
+        #    raise ValueError("No data left after preprocessing — check filters.")
     
     def normalize(self, df, normalize=True):
         group_cols = ['altitude_band', 'coarse_lat', 'coarse_lon']
         
         ecmwf = ECMWFProcessor()
         df_norm_pd = ecmwf.load_norm_params().compute()
+        norm_scope = self.normalization_mode
 
         def normalize_partition(pdf, norm_df):
-            pdf = pdf.merge(norm_df, on=group_cols, how='left')
+            if norm_scope == 'per_coordinate':
+                pdf = pdf.merge(norm_df, on=group_cols, how='left')
+            else:
+                pdf = pdf.assign(_norm_join_key=1)
+                norm_df = norm_df.assign(_norm_join_key=1)
+                pdf = pdf.merge(norm_df, on='_norm_join_key', how='left').drop(columns=['_norm_join_key'])
 
             if normalize:
                 pdf['u_normed'] = (pdf['u'] - pdf['u_mean']) / pdf['u_std']
@@ -137,32 +144,11 @@ class AMDARProcessor:
         meta['v_normed'] = np.float32()
 
         return df.map_partitions(normalize_partition, df_norm_pd, meta=meta)
-    
-    # def normalize(self, df):
-    #     params = self.load_ecmwf_norm_params()
-    #     
-    #     df = df.merge(params, left_on=['altitude_band', f"coarse_{LATITUDE}", f"coarse_{LONGITUDE}"], right_on=['altitude_band', 'coarse_lat', 'coarse_lon'], how='left')
-    # 
-    #     df[f"{WIND_U}_normed"] = (df[WIND_U] - df['u_mean']) / df['u_std']
-    #     df[f"{WIND_V}_normed"] = (df[WIND_V] - df['v_mean']) / df['v_std']
-    # 
-    #     return df
-
-    # def unnormalize(self, df):
-    #     params = self.load_ecmwf_norm_params()
-    #  
-    #     df = df.merge(params, left_on=['altitude_band', f"coarse_{LATITUDE}", f"coarse_{LONGITUDE}"], right_on=['altitude_band', 'coarse_lat', 'coarse_lon'], how='left')
-    # 
-    #     df[WIND_U] = df[f"{WIND_U}_normed"] * df['u_std'] + df['u_mean']
-    #     df[WIND_V] = df[f"{WIND_V}_normed"] * df['v_std'] + df['v_mean']
-    # 
-    #     return df
 
     def run(self):
         self.load()
         self.preprocess()
 
-        # Ensure execution happens
         self.ds.to_parquet(
             self.save_path,
             partition_on=self.partition_cols if self.partition_cols else None,

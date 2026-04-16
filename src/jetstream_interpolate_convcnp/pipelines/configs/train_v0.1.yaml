@@ -21,6 +21,7 @@ paths:
 settings:
   clear_dataset_save_dir_on_startup: false
   clear_norm_params_on_startup: false
+  ecmwf_normalization_mode: 'global' # options: 'per_coordinate' or 'global'
 
 # use small datasets in development, often by subsetting in time.
 environment:
@@ -52,13 +53,13 @@ model:
 
 # control which steps of the pipeline to execute
 execute:
-  dataset_preprocessing: true
+  dataset_preprocessing: false
 
   preprocessing:
     era5: false
-    ecmwf: false
+    ecmwf: true
     amdar: true
 
-  train: false
+  train: true
 
   vtk_output: true

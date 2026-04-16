@@ -64,7 +64,13 @@ def dataset_conversions(settings):
                 shutil.rmtree(norm_path)
             os.makedirs(norm_path, exist_ok=True)
 
-        ecmwf_processor = ECMWFProcessor(chunking_in={"time": 24, "latitude": 360, "longitude": 360}, do_normalize=True, reduce_time=settings['environment']['small_ds'])
+        normalization_mode = settings['settings'].get('ecmwf_normalization_mode', 'per_coordinate')
+        ecmwf_processor = ECMWFProcessor(
+            chunking_in={"time": 24, "latitude": 360, "longitude": 360},
+            do_normalize=True,
+            reduce_time=settings['environment']['small_ds'],
+            normalization_mode=normalization_mode,
+        )
         ecmwf_processor.run()
 
         print("Finished processing ecmwf dataset.")
