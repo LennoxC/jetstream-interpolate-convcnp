@@ -15,3 +15,6 @@ vtk/*
 tb
 tb/*
 .figs
+
+*.png
+*.csv
